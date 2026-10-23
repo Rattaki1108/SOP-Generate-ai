@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบสร้างคู่มือ/SOP อัตโนมัติ</title>
+
+<!-- โหลดไลบรารี -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
+    background: #F0F4F8;
+    margin: 0;
+    padding: 40px 20px;
+    color: #1E2A38;
+  }
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    background: #FFFFFF;
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+  }
+  h1 { font-size: 22px; color: #1E3A5F; margin: 0 0 6px; }
+  h2 { font-size: 18px; color: #1E3A5F; margin: 0 0 16px; }
+  .subtitle { font-size: 14px; color: #6B7A8F; margin: 0 0 24px; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 16px 0 6px; color: #1E3A5F; }
+  
+  .header-flex { display: flex; justify-content: space-between; align-items: flex-end; }
+  .btn-clear { background: none; border: none; color: #C0392B; cursor: pointer; font-size: 13px; text-decoration: underline; margin-bottom: 6px; }
+
+  input[type="text"], input[type="password"] {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #D6E0EA;
+    border-radius: 10px; font-size: 14px; font-family: inherit; background: #FAFCFE;
+  }
+  textarea {
+    width: 100%; padding: 10px 12px; border: 1.5px solid #D6E0EA;
+    border-radius: 10px; font-size: 14px; font-family: inherit; background: #FFFFFF;
+    resize: vertical; min-height: 60px;
+  }
+
+  /* ---------- สไตล์กล่องขั้นตอนแต่ละอัน ---------- */
+  .step-block { border: 1.5px solid #D6E0EA; border-radius: 14px; padding: 16px; margin-bottom: 14px; background: #FAFCFE; position: relative; }
+  .step-number { display: inline-block; background: #2C5F8A; color: white; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px; }
+  .remove-step-btn { position: absolute; top: 12px; right: 14px; background: none; border: none; color: #B0BEC9; cursor: pointer; }
+
+  /* ---------- สไตล์ส่วนแนบรูปภาพ ---------- */
+  .image-upload-area { margin-top: 10px; display: flex; align-items: center; gap: 12px; }
+  .upload-btn { display: inline-flex; gap: 6px; padding: 7px 14px; background: #EAF1F7; color: #2C5F8A; border: 1px dashed #A9C3D9; border-radius: 8px; font-size: 12.5px; cursor: pointer; }
+  .image-preview { display: flex; gap: 8px; flex-wrap: wrap; }
+  .image-preview img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1.5px solid #D6E0EA; }
+  .remove-image { position: relative; }
+  .remove-image .x-btn { position: absolute; top: -6px; right: -6px; background: #C0392B; color: white; width: 18px; height: 18px; border-radius: 50%; font-size: 11px; line-height: 18px; text-align: center; cursor: pointer; }
+
+  /* ---------- ปุ่มต่างๆ ในฟอร์ม ---------- */
+  .add-step-btn { width: 100%; padding: 11px; background: #EAF1F7; color: #2C5F8A; border: 1.5px dashed #A9C3D9; border-radius: 10px; font-weight: 600; cursor: pointer; margin-top: 4px; }
+  button.main-btn { margin-top: 20px; width: 100%; padding: 13px; background: #2C5F8A; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button.main-btn:disabled { background: #B0BEC9; }
+  .error { color: #C0392B; font-size: 13px; margin-top: 6px; display: none; }
+  .loading { display: none; text-align: center; padding: 20px; color: #6B7A8F; }
+  .loading.show { display: block; }
+
+  /* ---------- กล่องแสดงผลลัพธ์ ---------- */
+  .result-box { margin-top: 24px; padding: 24px; background: #F5F9FC; border: 1.5px solid #D6E0EA; border-radius: 14px; display: none; }
+  .result-box.show { display: block; }
+  .doc-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1E3A5F; padding-bottom: 12px; margin-bottom: 20px; }
+  .doc-header-title { font-size: 19px; font-weight: 700; color: #1E3A5F; }
+  .doc-header-badge { background: #1E3A5F; color: white; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 5px; }
+  .doc-objective { font-size: 13.5px; color: #4A5A6E; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid #E2E9F0; }
+  .doc-step { margin-bottom: 24px; }
+  .doc-step-text { font-size: 14.5px; line-height: 1.8; }
+  .doc-step-text .step-num { font-weight: 700; color: #1E3A5F; }
+  .doc-step-images { margin-top: 10px; display: flex; flex-direction: column; align-items: center; }
+  .doc-step-images img { width: 100%; max-width: 380px; border: 1px solid #C9D3DE; border-radius: 4px; }
+
+  /* ---------- ปุ่มดาวน์โหลด ---------- */
+  .export-bar { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+  .export-btn { flex: 1; min-width: 140px; padding: 10px; background: white; color: #2C5F8A; border: 1.5px solid #2C5F8A; border-radius: 10px; font-weight: 600; cursor: pointer; }
+  .export-btn.primary { background: #2C5F8A; color: white; }
+
+  /* ---------- ประวัติคู่มือ (History) ---------- */
+  .history-section { margin-top: 40px; padding-top: 30px; border-top: 2px dashed #D6E0EA; }
+  .history-list { display: flex; flex-direction: column; gap: 12px; }
+  .history-item { display: flex; justify-content: space-between; align-items: center; background: #FAFCFE; padding: 16px; border: 1px solid #D6E0EA; border-radius: 12px; }
+  .history-info strong { color: #1E3A5F; display: block; margin-bottom: 4px; font-size: 15px; }
+  .history-info span { font-size: 12px; color: #6B7A8F; }
+  .history-actions { display: flex; gap: 8px; }
+  .history-actions button { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn-edit { background: #EAF1F7; color: #2C5F8A; }
+  .btn-delete { background: #FDE8E8; color: #C0392B; }
+
+  /* ---------- หน้าจอล็อกอิน ---------- */
+  #login-screen { max-width: 360px; margin: 100px auto; background: white; padding: 32px; border-radius: 16px; text-align: center; }
+  #login-screen input { margin: 16px 0; }
+  #login-error { color: #C0392B; font-size: 13px; display: none; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h1>🔒 ระบบสร้างคู่มือบริษัท</h1>
+  <p class="subtitle">กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+  <input type="password" id="password-input" placeholder="รหัสผ่าน">
+  <div id="login-error">รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่</div>
+  <button class="main-btn" onclick="checkPassword()">เข้าสู่ระบบ</button>
+</div>
+
+<div class="container" id="main-app" style="display:none;">
+  <h1>📋 ระบบสร้างคู่มือ/SOP อัตโนมัติ</h1>
+  <p class="subtitle">พิมพ์ขั้นตอนแบบหยาบๆ พร้อมแนบรูปภาพ ระบบจะจัดเป็นคู่มือทางการให้ทันที</p>
+
+  <div class="header-flex">
+    <label for="title" style="margin-bottom:0;">ชื่อคู่มือ</label>
+    <button class="btn-clear" onclick="clearForm()">+ เริ่มคู่มือใหม่ (Clear)</button>
+  </div>
+  <input type="text" id="title" placeholder="เช่น วิธีเบิกค่าใช้จ่ายในบริษัท">
+
+  <label>ขั้นตอนการทำงาน</label>
+  <div id="steps-list"></div>
+  <button class="add-step-btn" onclick="addStep()">+ เพิ่มขั้นตอน</button>
+
+  <div class="error" id="error-msg">กรุณากรอกชื่อคู่มือและขั้นตอนก่อนครับ</div>
+
+  <button class="main-btn" id="generate-btn" onclick="generateSOP()">📄 สร้างคู่มือให้ฉัน</button>
+  <div class="loading" id="loading">⏳ กำลังจัดทำคู่มือ...</div>
+
+  <div class="result-box" id="result-box">
+    <div id="export-content">
+      <div class="doc-header">
+        <div class="doc-header-title" id="result-title"></div>
+        <div class="doc-header-badge">คู่มือปฏิบัติงาน</div>
+      </div>
+      <div class="doc-objective" id="result-objective"></div>
+      <div id="result-steps"></div>
+    </div>
+    <div class="export-bar">
+      <button class="export-btn primary" onclick="exportAsPDF()">🖨️ ดาวน์โหลด PDF</button>
+      <button class="export-btn" onclick="exportAsWord()">📥 ดาวน์โหลด Word</button>
+    </div>
+  </div>
+
+  <!-- ส่วนประวัติการสร้างคู่มือ -->
+  <div class="history-section">
+    <h2>📚 ประวัติคู่มือที่เคยสร้าง</h2>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</div>
+
+<script>
+// ตั้งค่ารหัสผ่านและ API Key
+const SITE_PASSWORD = "112233";              
+const GEMINI_API_KEY = "AQ.Ab8RN6LScBMomh3BpIvLLMnsy1AigGFko03u2t-DDXeT03ptOA"; 
+
+function checkPassword() {
+  const input = document.getElementById('password-input').value;
+  if (input === SITE_PASSWORD) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    loadHistory(); 
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+  }
+}
+
+document.getElementById('password-input').addEventListener('keypress', function(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    checkPassword();
+  }
+});
+
+let stepCount = 0;        
+const stepImages = {};    
+let lastResult = null;    
+let currentEditId = null; 
+
+function clearForm() {
+  currentEditId = null;
+  document.getElementById('title').value = '';
+  document.getElementById('steps-list').innerHTML = '';
+  stepCount = 0;
+  for (let key in stepImages) delete stepImages[key];
+  addStep();
+  document.getElementById('result-box').classList.remove('show');
+}
+
+function addStep() {
+  stepCount++;
+  const id = stepCount;
+  stepImages[id] = []; 
+
+  const div = document.createElement('div');
+  div.className = 'step-block';
+  div.id = `step-${id}`;
+  div.innerHTML = `
+    <button class="remove-step-btn" onclick="removeStep(${id})">✕</button>
+    <div class="step-number">ขั้นตอนที่ ${document.querySelectorAll('.step-block').length + 1}</div>
+    <textarea placeholder="อธิบายขั้นตอนนี้..." data-id="${id}"></textarea>
+    <div class="image-upload-area">
+      <label class="upload-btn">🖼️ แนบรูป
+        <input type="file" accept="image/*" multiple style="display:none" onchange="handleImage(event, ${id})">
+      </label>
+      <div class="image-preview" id="preview-${id}"></div>
+    </div>`;
+  document.getElementById('steps-list').appendChild(div);
+}
+
+function removeStep(id) {
+  document.getElementById(`step-${id}`).remove();
+  delete stepImages[id];
+  document.querySelectorAll('.step-block').forEach((b, i) => {
+    b.querySelector('.step-number').textContent = `ขั้นตอนที่ ${i + 1}`;
+  });
+}
+
+async function handleImage(e, id) {
+  for (const file of Array.from(e.target.files)) {
+    const raw = await new Promise(r => {
+      const reader = new FileReader();
+      reader.onload = ev => r(ev.target.result);
+      reader.readAsDataURL(file);
+    });
+    const fixed = await cropUniform(raw); 
+    stepImages[id].push(fixed);
+    renderPreview(id);
+  }
+  e.target.value = ''; 
+}
+
+function cropUniform(src) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const W = 600, H = 450; 
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, W, H); 
+      const scale = Math.min(W / img.width, H / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); 
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = src;
+  });
+}
+
+function renderPreview(id) {
+  const el = document.getElementById(`preview-${id}`);
+  el.innerHTML = '';
+  stepImages[id].forEach((src, i) => {
+    const d = document.createElement('div');
+    d.className = 'remove-image';
+    d.innerHTML = `<img src="${src}"><span class="x-btn" onclick="removeImg(${id},${i})">✕</span>`;
+    el.appendChild(d);
+  });
+}
+
+function removeImg(id, i) {
+  stepImages[id].splice(i, 1);
+  renderPreview(id);
+}
+
+async function generateSOP() {
+  const title = document.getElementById('title').value.trim();
+  const blocks = document.querySelectorAll('.step-block');
+  const stepsData = [];
+  blocks.forEach(b => {
+    const ta = b.querySelector('textarea');
+    const text = ta.value.trim();
+    if (text) stepsData.push({ text, images: stepImages[ta.dataset.id] || [] });
+  });
+
+  if (!title || stepsData.length === 0) {
+    document.getElementById('error-msg').style.display = 'block';
+    return;
+  }
+  document.getElementById('error-msg').style.display = 'none';
+  document.getElementById('generate-btn').disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('result-box').classList.remove('show');
+
+  const systemPrompt = `คุณคือผู้เชี่ยวชาญเขียนคู่มือปฏิบัติงาน (SOP) จัดรูปแบบขั้นตอนหยาบๆ ให้เป็นทางการ กระชับ\nตอบเป็น JSON เท่านั้น: {"objective":"...","steps":["...","..."]}\nจำนวน steps ต้องเท่ากับที่ผู้ใช้ส่งมา เรียงลำดับตรงกัน`;
+  const userMsg = `ชื่อคู่มือ: ${title}\n\nขั้นตอน:\n` + stepsData.map((s, i) => `${i + 1}. ${s.text}`).join('\n');
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userMsg }] }]
+        })
+      }
+    );
+    
+    const data = await res.json();
+    if (data.error) throw new Error(`API แจ้งว่า: ${data.error.message}`);
+    if (!data.candidates || data.candidates.length === 0) throw new Error("ไม่ได้รับข้อมูลการตอบกลับจาก AI");
+
+    const raw = data.candidates[0].content.parts[0].text;
+    const matchData = raw.match(/\{[\s\S]*\}/);
+    if (!matchData) throw new Error("AI ไม่ได้ตอบกลับมาเป็นรูปแบบ JSON");
+
+    const json = JSON.parse(matchData[0]);
+
+    lastResult = { 
+      id: currentEditId || Date.now(), 
+      title, 
+      objective: json.objective, 
+      steps: json.steps, 
+      stepsData,
+      date: new Date().toLocaleString('th-TH')
+    };
+
+    renderResult(lastResult);
+    document.getElementById('result-box').classList.add('show');
+    
+    saveToHistory(lastResult); 
+
+  } catch (err) {
+    alert('เกิดข้อผิดพลาด: ' + err.message); 
+  } finally {
+    document.getElementById('generate-btn').disabled = false;
+    document.getElementById('loading').classList.remove('show');
+  }
+}
+
+// ----------------------------------------------------
+// อัปเดตฟังก์ชัน renderResult ให้แบ่งหน้า PDF ทุกๆ 2 ข้อ
+// ----------------------------------------------------
+function renderResult(r) {
+  document.getElementById('result-title').textContent = r.title;
+  document.getElementById('result-objective').textContent = r.objective || '';
+  const box = document.getElementById('result-steps');
+  box.innerHTML = '';
+  
+  r.steps.forEach((text, i) => {
+    const imgs = r.stepsData[i] ? r.stepsData[i].images : [];
+    const imgHtml = imgs.map(s => `<div class="doc-step-images"><img src="${s}"></div>`).join('');
+    
+    const div = document.createElement('div');
+    div.className = 'doc-step';
+    div.innerHTML = `<div class="doc-step-text"><span class="step-num">${i + 1}.</span> ${text}</div>${imgHtml}`;
+    box.appendChild(div);
+
+    // เช็คว่าถ้าเป็นข้อที่หาร 2 ลงตัว (ข้อ 2, 4, 6...) และไม่ใช่ข้อสุดท้าย ให้ตัดขึ้นหน้าใหม่
+    if ((i + 1) % 2 === 0 && i !== r.steps.length - 1) {
+      const pageBreak = document.createElement('div');
+      
+      // คำสั่ง HTML/CSS สำหรับบังคับตัดขึ้นหน้าใหม่ตอนเซฟเป็น PDF
+      pageBreak.style.pageBreakAfter = 'always'; 
+      
+    
+      box.appendChild(pageBreak);
+    }
+  });
+}
+
+function saveToHistory(result) {
+  let history = JSON.parse(localStorage.getItem('sop_history')) || [];
+  
+  if (currentEditId) {
+    const index = history.findIndex(x => x.id === currentEditId);
+    if (index > -1) history[index] = result;
+  } else {
+    history.unshift(result);
+  }
+  
+  localStorage.setItem('sop_history', JSON.stringify(history));
+  currentEditId = null; 
+  loadHistory();
+}
+
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem('sop_history')) || [];
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+
+  if (history.length === 0) {
+    list.innerHTML = '<div style="color:#6B7A8F; font-size:14px; text-align:center;">ยังไม่มีประวัติการสร้างคู่มือ</div>';
+    return;
+  }
+  
+  history.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    div.innerHTML = `
+      <div class="history-info">
+        <strong>${item.title}</strong>
+        <span>อัปเดตเมื่อ: ${item.date}</span>
+      </div>
+      <div class="history-actions">
+        <button class="btn-edit" onclick="editHistory(${item.id})">✏️ แก้ไข</button>
+        <button class="btn-delete" onclick="deleteHistory(${item.id})">🗑️ ลบ</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function editHistory(id) {
+  const history = JSON.parse(localStorage.getItem('sop_history')) || [];
+  const item = history.find(x => x.id === id);
+  if (!item) return;
+
+  currentEditId = id; 
+  document.getElementById('title').value = item.title;
+  
+  document.getElementById('steps-list').innerHTML = '';
+  stepCount = 0;
+  for (let key in stepImages) delete stepImages[key];
+
+  item.stepsData.forEach(sd => {
+    addStep();
+    const currentId = stepCount;
+    document.querySelector(`textarea[data-id="${currentId}"]`).value = sd.text;
+    stepImages[currentId] = [...sd.images];
+    renderPreview(currentId);
+  });
+
+  document.getElementById('result-box').classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteHistory(id) {
+  if (!confirm('คุณต้องการลบคู่มือนี้ใช่หรือไม่?')) return;
+  let history = JSON.parse(localStorage.getItem('sop_history')) || [];
+  history = history.filter(x => x.id !== id);
+  localStorage.setItem('sop_history', JSON.stringify(history));
+  loadHistory();
+}
+
+function exportAsPDF() {
+  const btn = document.querySelector('.export-btn.primary');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '⏳ กำลังสร้าง PDF...';
+  btn.disabled = true;
+  window.scrollTo(0, 0);
+
+  const element = document.getElementById('export-content');
+  html2pdf().set({
+    margin: 15,
+    filename: `${lastResult.title}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#FFFFFF' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(element).save().then(() => {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }).catch(err => {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    alert('เกิดข้อผิดพลาดในการสร้าง PDF: ' + err.message);
+  });
+}
+
+function exportAsWord() {
+  let stepsHtml = '';
+  
+  lastResult.steps.forEach((text, i) => {
+    const imgs = lastResult.stepsData[i] ? lastResult.stepsData[i].images : [];
+    
+    // ปรับลดขนาดรูปเหลือ width="280" เพื่อให้มั่นใจว่า 2 หัวข้อจะยัดลง 1 หน้า A4 ใน Word ได้พอดี
+    const imgHtml = imgs.map(s => `<p style="text-align:center;"><img src="${s}" width="280"></p>`).join('');
+    
+    stepsHtml += `<p><b>${i + 1}.</b> ${text}</p>${imgHtml}`;
+    
+    // คำสั่งตัดขึ้นหน้าใหม่สำหรับ Word
+    if ((i + 1) % 2 === 0 && i !== lastResult.steps.length - 1) {
+      // ใช้แท็กนี้ เป็นแท็กที่ไลบรารี html-docx-js รองรับการตัดหน้า 100%
+      stepsHtml += '<br style="page-break-before: always">'; 
+    }
+  });
+
+  const html = [
+    "<ht", "ml><he", "ad><meta charset='utf-8'></he", "ad><bo", "dy>", 
+    "<h1>", lastResult.title, "</h1>", 
+    "<p>", (lastResult.objective || ''), "</p>", 
+    stepsHtml, 
+    "</bo", "dy></ht", "ml>"
+  ].join('');
+
+  const blob = htmlDocx.asBlob(html);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${lastResult.title}.docx`;
+  a.click();
+  URL.revokeObjectURL(url); 
+}
+
+addStep();
+</script>
+</body>
+</html>
